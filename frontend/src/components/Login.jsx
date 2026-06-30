@@ -43,52 +43,70 @@ const Login = () => {
     }
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const validationErrors = validateForm();
+    const validationErrors = validateForm();
 
-  if (Object.keys(validationErrors).length > 0) {
-    setErrors(validationErrors);
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-    const response = await fetch("http://127.0.0.1:5000/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: formData.email,
-        password: formData.password,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("userEmail", data.user.email);
-      localStorage.setItem("userName", data.user.fullname);
-      localStorage.setItem("userRole", data.user.role);
-
-      navigate("/dashboard");
-    } else {
-      setErrors({
-        general: data.message,
-      });
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
     }
-  } catch (error) {
-    setErrors({
-      general: "Could not connect to backend server",
-    });
-  }
 
-  setIsLoading(false);
-};
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      console.log("🔐 Attempting login with:", formData.email);
+      
+      const response = await fetch("http://127.0.0.1:5000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      console.log("📡 Response status:", response.status);
+      
+      const data = await response.json();
+      console.log("📦 Response data:", data);
+
+      if (response.ok && data.user) {
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userEmail", data.user.email);
+        localStorage.setItem("userName", data.user.fullname);
+        localStorage.setItem("userRole", data.user.role);
+        
+        alert("✅ Login successful! Welcome " + data.user.fullname);
+        navigate("/dashboard");
+      } else {
+        const errorMessage = data.error || data.message || "Login failed. Please try again.";
+        setErrors({
+          general: errorMessage
+        });
+      }
+    } catch (error) {
+      console.error("❌ Login error:", error);
+      
+      let errorMessage = "Could not connect to backend server";
+      if (error.message.includes("Failed to fetch") || error.message.includes("ERR_CONNECTION_REFUSED")) {
+        errorMessage = "❌ Cannot connect to backend server. Please make sure Flask is running on port 5000.";
+      } else if (error.message.includes("NetworkError")) {
+        errorMessage = "❌ Network error. Please check your internet connection.";
+      }
+      
+      setErrors({
+        general: errorMessage
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleForgotPassword = () => {
     setShowResetModal(true);
     setResetMessage("");
@@ -116,6 +134,17 @@ const Login = () => {
     }, 1500);
   };
 
+  // Test backend connection
+  const testBackend = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:5000/test");
+      const data = await response.json();
+      alert("✅ Backend is running!\n\n" + JSON.stringify(data, null, 2));
+    } catch (error) {
+      alert("❌ Cannot connect to backend. Make sure Flask is running on port 5000.");
+    }
+  };
+
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -141,6 +170,17 @@ const Login = () => {
           )}
 
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Test Connection Button */}
+            <div>
+              <button
+                type="button"
+                onClick={testBackend}
+                className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                🔌 Test Backend Connection
+              </button>
+            </div>
+
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -327,7 +367,7 @@ const Login = () => {
         </div>
       )}
     </div>
-   );
+  );
 };
 
 export default Login;
